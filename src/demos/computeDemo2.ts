@@ -4,9 +4,9 @@ const BUFFER_SIZE = 10000 * 4 * 4;
 // Compute shader
 const shader = `
 @group(0) @binding(0)
-var<storage, read_write> input: array<f32>;
+var<storage, read_write> input: array<i32>;
 @group(0) @binding(1)
-var<storage, read_write> output: array<f32>;
+var<storage, read_write> output: array<i32>;
 
 @compute @workgroup_size(64)
 fn main(
@@ -54,7 +54,7 @@ export async function runComputeDemo2(
   const imageData = canvasSource
     .getContext("2d")!
     .getImageData(0, 0, canvasSource.width, canvasSource.height).data;
-  const data2 = new Float32Array(imageData.length);
+  const data2 = new Int32Array(imageData.length);
 
   for (let i = 0; i < imageData.length; i++) {
     data2[i] = imageData[i];
@@ -63,7 +63,7 @@ export async function runComputeDemo2(
   console.log(data2);
 
   const mappedBuffer = input.getMappedRange();
-  new Float32Array(mappedBuffer).set(data2);
+  new Int32Array(mappedBuffer).set(data2);
   input.unmap();
   const output = device.createBuffer({
     size: BUFFER_SIZE,
@@ -125,13 +125,13 @@ export async function runComputeDemo2(
   const result = copyArrayBuffer.slice(0);
   stagingBuffer.unmap();
 
-  const float32Array = new Float32Array(result);
+  const int32Array = new Int32Array(result);
 
   // Convert to Uint8ClampedArray
-  const uint8ClampedArray = new Uint8ClampedArray(float32Array.length);
+  const uint8ClampedArray = new Uint8ClampedArray(int32Array.length);
 
-  for (let i = 0; i < float32Array.length; i++) {
-    uint8ClampedArray[i] = Math.min(255, Math.max(0, float32Array[i]));
+  for (let i = 0; i < int32Array.length; i++) {
+    uint8ClampedArray[i] = Math.min(255, Math.max(0, int32Array[i]));
   }
 
   console.log("output", uint8ClampedArray);
