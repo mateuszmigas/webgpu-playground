@@ -1,6 +1,6 @@
 // Define global buffer size
-const BUFFER_SIZE = 10000 * 4 * 4;
 
+const chunks = 1024;
 // Compute shader
 const shader = `
 @group(0) @binding(0)
@@ -8,16 +8,13 @@ var<storage, read> input: array<i32>;
 @group(0) @binding(1)
 var<storage, read_write> output: array<i32>;
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(${chunks})
 fn main(
   @builtin(global_invocation_id)
   global_id : vec3u,
   @builtin(local_invocation_id)
   local_id : vec3u,
 ) {
-  if (global_id.x >= ${BUFFER_SIZE}u) {
-    return;
-  }
 
   output[global_id.x] = input[global_id.x] / 2;
 }
@@ -25,7 +22,8 @@ fn main(
 
 export async function runComputeDemo2(
   canvasSource: HTMLCanvasElement,
-  canvasTarget: HTMLCanvasElement
+  canvasTarget: HTMLCanvasElement,
+  BUFFER_SIZE = 10000 * 4 * 4
 ) {
   if (!navigator.gpu) {
     throw Error("WebGPU not supported.");
@@ -56,8 +54,6 @@ export async function runComputeDemo2(
   for (let i = 0; i < imageData.length; i++) {
     data2[i] = imageData[i];
   }
-
-  console.log(data2);
 
   const mappedBuffer = input.getMappedRange();
   new Int32Array(mappedBuffer).set(data2);
@@ -105,18 +101,19 @@ export async function runComputeDemo2(
     },
   });
 
+  console.time("runComputeDemo2");
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginComputePass();
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(Math.ceil(BUFFER_SIZE / 64));
+  passEncoder.dispatchWorkgroups(Math.ceil(BUFFER_SIZE / chunks));
   passEncoder.end();
 
   commandEncoder.copyBufferToBuffer(output, 0, stagingBuffer, 0, BUFFER_SIZE);
 
   device.queue.submit([commandEncoder.finish()]);
-
   await stagingBuffer.mapAsync(GPUMapMode.READ, 0, BUFFER_SIZE);
+  console.timeEnd("runComputeDemo2");
 
   const copyArrayBuffer = stagingBuffer.getMappedRange(0, BUFFER_SIZE);
   const result = copyArrayBuffer.slice(0);
@@ -128,13 +125,15 @@ export async function runComputeDemo2(
   const uint8ClampedArray = new Uint8ClampedArray(int32Array.length);
 
   for (let i = 0; i < int32Array.length; i++) {
-    uint8ClampedArray[i] = Math.min(255, Math.max(0, int32Array[i]));
+    uint8ClampedArray[i] = int32Array[i];
   }
-
-  console.log("output", uint8ClampedArray);
 
   canvasTarget
     .getContext("2d")!
-    .putImageData(new ImageData(uint8ClampedArray, 100, 100), 0, 0);
+    .putImageData(
+      new ImageData(uint8ClampedArray, canvasTarget.width, canvasTarget.height),
+      0,
+      0
+    );
 }
 
