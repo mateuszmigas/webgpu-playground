@@ -1,9 +1,11 @@
 // Define global buffer size
-const BUFFER_SIZE = 1000;
+const BUFFER_SIZE = 10000 * 4 * 4;
 
 // Compute shader
 const shader = `
 @group(0) @binding(0)
+var<storage, read_write> input: array<f32>;
+@group(0) @binding(1)
 var<storage, read_write> output: array<f32>;
 
 @compute @workgroup_size(64)
@@ -19,14 +21,15 @@ fn main(
     return;
   }
 
-  output[global_id.x] =
-    f32(global_id.x) * 1000. + f32(local_id.x);
+  output[global_id.x] = input[global_id.x];
+    // f32(global_id.x) * 1000. + f32(local_id.x);
 }
 `;
 
-// Main function
-export async function runComputeDemo2() {
-  // 1: request adapter and device
+export async function runComputeDemo2(
+  canvasSource: HTMLCanvasElement,
+  canvasTarget: HTMLCanvasElement
+) {
   if (!navigator.gpu) {
     throw Error("WebGPU not supported.");
   }
@@ -38,13 +41,30 @@ export async function runComputeDemo2() {
 
   const device = await adapter.requestDevice();
 
-  // 2: Create a shader module from the shader template literal
   const shaderModule = device.createShaderModule({
     code: shader,
   });
 
-  // 3: Create an output buffer to read GPU calculations to, and a staging buffer to be mapped for JavaScript access
+  const input = device.createBuffer({
+    size: BUFFER_SIZE,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    mappedAtCreation: true,
+  });
 
+  const imageData = canvasSource
+    .getContext("2d")!
+    .getImageData(0, 0, canvasSource.width, canvasSource.height).data;
+  const data2 = new Float32Array(imageData.length);
+
+  for (let i = 0; i < imageData.length; i++) {
+    data2[i] = imageData[i];
+  }
+
+  console.log(data2);
+
+  const mappedBuffer = input.getMappedRange();
+  new Float32Array(mappedBuffer).set(data2);
+  input.unmap();
   const output = device.createBuffer({
     size: BUFFER_SIZE,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -55,17 +75,17 @@ export async function runComputeDemo2() {
     usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
   });
 
-  // 4: Create a GPUBindGroupLayout to define the bind group structure, create a GPUBindGroup from it,
-  // then use it to create a GPUComputePipeline
-
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
       {
         binding: 0,
         visibility: GPUShaderStage.COMPUTE,
-        buffer: {
-          type: "storage",
-        },
+        buffer: { type: "storage" },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "storage" },
       },
     ],
   });
@@ -73,12 +93,8 @@ export async function runComputeDemo2() {
   const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: output,
-        },
-      },
+      { binding: 0, resource: { buffer: input } },
+      { binding: 1, resource: { buffer: output } },
     ],
   });
 
@@ -92,42 +108,36 @@ export async function runComputeDemo2() {
     },
   });
 
-  // 5: Create GPUCommandEncoder to issue commands to the GPU
   const commandEncoder = device.createCommandEncoder();
-
-  // 6: Initiate render pass
   const passEncoder = commandEncoder.beginComputePass();
-
-  // 7: Issue commands
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
   passEncoder.dispatchWorkgroups(Math.ceil(BUFFER_SIZE / 64));
-
-  // End the render pass
   passEncoder.end();
 
-  // Copy output buffer to staging buffer
-  commandEncoder.copyBufferToBuffer(
-    output,
-    0, // Source offset
-    stagingBuffer,
-    0, // Destination offset
-    BUFFER_SIZE
-  );
+  commandEncoder.copyBufferToBuffer(output, 0, stagingBuffer, 0, BUFFER_SIZE);
 
-  // 8: End frame by passing array of command buffers to command queue for execution
   device.queue.submit([commandEncoder.finish()]);
 
-  // map staging buffer to read results back to JS
-  await stagingBuffer.mapAsync(
-    GPUMapMode.READ,
-    0, // Offset
-    BUFFER_SIZE // Length
-  );
+  await stagingBuffer.mapAsync(GPUMapMode.READ, 0, BUFFER_SIZE);
 
   const copyArrayBuffer = stagingBuffer.getMappedRange(0, BUFFER_SIZE);
-  const data = copyArrayBuffer.slice(0);
+  const result = copyArrayBuffer.slice(0);
   stagingBuffer.unmap();
-  console.log(new Float32Array(data));
+
+  const float32Array = new Float32Array(result);
+
+  // Convert to Uint8ClampedArray
+  const uint8ClampedArray = new Uint8ClampedArray(float32Array.length);
+
+  for (let i = 0; i < float32Array.length; i++) {
+    uint8ClampedArray[i] = Math.min(255, Math.max(0, float32Array[i]));
+  }
+
+  console.log("output", uint8ClampedArray);
+
+  canvasTarget
+    .getContext("2d")!
+    .putImageData(new ImageData(uint8ClampedArray, 100, 100), 0, 0);
 }
 
