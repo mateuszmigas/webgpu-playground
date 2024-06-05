@@ -21,7 +21,7 @@ fn main(
     return;
   }
 
-  output[global_id.x] = input[global_id.x];
+  output[global_id.x] = input[global_id.x] / 2;
     // f32(global_id.x) * 1000. + f32(local_id.x);
 }
 `;

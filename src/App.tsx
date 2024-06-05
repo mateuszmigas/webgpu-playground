@@ -11,20 +11,8 @@ export const App = () => {
     const canvas = canvasSourceRef.current!;
     const context = canvas.getContext("2d")!;
     context.fillStyle = "red";
-    context.fillRect(0, 0, canvas.width / 10, canvas.height / 10);
-
+    context.fillRect(0, 0, canvas.width / 2, canvas.height / 2);
     runComputeDemo2(canvasSourceRef.current!, canvasTargetRef.current!);
-    // const ctx = canvasTargetRef.current!.getContext("2d");
-    // if (ctx) {
-    //   const imgData = new ImageData(2, 2);
-    //   imgData.data.set(
-    //     new Uint8ClampedArray([
-    //       255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-    //       255, 255,
-    //     ])
-    //   );
-    //   ctx.putImageData(imgData, 0, 0);
-    // }
   }, []);
 
   return (
