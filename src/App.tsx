@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { runComputeDemo1 } from "./demos/computeDemo1";
 import { runComputeDemo2 } from "./demos/computeDemo2";
+import { runComputeDemo00 } from "./demos/computeDemo00";
 
 const loadImageIntoCanvas = (src: string, canvas: HTMLCanvasElement) => {
   return new Promise((resolve, reject) => {
@@ -34,6 +35,7 @@ export const App = () => {
     context.fillStyle = "red";
     context.fillRect(0, 0, canvas.width / 2, canvas.height / 2);
     // runComputeDemo2(canvasSourceRef.current!, canvasTargetRef.current!);
+    runComputeDemo00();
   }, []);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {

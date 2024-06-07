@@ -1,6 +1,5 @@
 // Define global buffer size
 
-const chunks = 1024;
 // Compute shader
 const shader = `
 @group(0) @binding(0)
@@ -8,15 +7,14 @@ var<storage, read> input: array<i32>;
 @group(0) @binding(1)
 var<storage, read_write> output: array<i32>;
 
-@compute @workgroup_size(${chunks})
+@compute @workgroup_size(1)
 fn main(
   @builtin(global_invocation_id)
   global_id : vec3u,
   @builtin(local_invocation_id)
   local_id : vec3u,
 ) {
-
-  output[global_id.x] = input[global_id.x] / 2;
+  output[global_id.x] = 1;//input[global_id.x] / 2;
 }
 `;
 
@@ -106,7 +104,8 @@ export async function runComputeDemo2(
   const passEncoder = commandEncoder.beginComputePass();
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(Math.ceil(BUFFER_SIZE / chunks));
+  passEncoder.dispatchWorkgroups(64);
+  // passEncoder.dispatchWorkgroups(Math.ceil(BUFFER_SIZE / chunks));
   passEncoder.end();
 
   commandEncoder.copyBufferToBuffer(output, 0, stagingBuffer, 0, BUFFER_SIZE);
@@ -123,6 +122,8 @@ export async function runComputeDemo2(
 
   // Convert to Uint8ClampedArray
   const uint8ClampedArray = new Uint8ClampedArray(int32Array.length);
+
+  console.log(int32Array);
 
   for (let i = 0; i < int32Array.length; i++) {
     uint8ClampedArray[i] = int32Array[i];
